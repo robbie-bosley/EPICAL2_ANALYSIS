@@ -1,0 +1,7 @@
+executable              = Analyse_Run1250.sh
+arguments               = $(ClusterID) $(ProcId)
+output                  = ./logs/Analyse_Run1250.$(ClusterID).$(ProcId).out
+error                   = ./logs/Analyse_Run1250.$(ClusterID).$(ProcId).err
+log                     = ./logs/Analyse_Run1250.$(ClusterID).log
++JobFlavour = "tomorrow"
+queue 1
