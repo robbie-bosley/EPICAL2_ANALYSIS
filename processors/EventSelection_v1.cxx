@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////////////////
 // 1)  INCLUDES
 
-#include "processors/EventSelection.h"
+#include "processors/EventSelection_v1.h"
 
 // Including some standard libraries
 #include <iostream>
@@ -105,7 +105,7 @@ bool IsLeftChip(int lane){
 
 ///////////////////////////////////////////////////////////
 // 4) CRITERIA-BASED EVENT SELECTION
-bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer, bool C2, bool C4, bool C6, int nPixelRadiusC2, int nPixelRadiusC4, int nPixelBorderC6, const int laneNumber[], const int laneOffset, const int columnsPerChip, const int rowsPerChip, double nPixelsGap, mTowerChipRobbie* hitsInChip[], int eventID, int nHits, int eventIndex) {
+bool EventSelectionA_v1(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer, bool C2, bool C4, bool C6, int nPixelRadiusC2, int nPixelRadiusC4, int nPixelBorderC6, const int laneNumber[], const int laneOffset, const int columnsPerChip, const int rowsPerChip, double nPixelsGap, mTowerChipRobbie* hitsInChip[], int eventID, int nHits, int eventIndex) {
 
   std::cout << "SELECTIONA" << std::endl;
   
@@ -355,7 +355,70 @@ bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer,
 		  }
 	      } 
 	    }//if cluster in first layer
-	} //loop over clusters for criterion C2
+	} //loop over layer0 clusters for criterion C2
+
+      meanXATC = 0;
+      meanYATC = 0;
+      
+      bool caughtaparticle = true;
+      if (acceptedCluster == -1) {
+	caughtaparticle = false;
+      }
+
+      for (int c = 0; c < nClusters_layer1; c++) //loop over clusters for criteria C2
+	{
+	  if (eventRejected) break;
+	  if ((vClusters_layer1[0][c] == 2) || (vClusters_layer1[0][c] == 3)) { //if cluster is in second layer
+	    int meanXC2 = vClusters_layer1[1][c];
+	    int meanYC2 = vClusters_layer1[2][c];
+	    if (vClusters_layer1[3][c] > 1) { //Require that the layer 1 cluster is more than 1 pixel large
+	      //something.
+	      
+	      for (int c3 = 0; c3 < nClusters_layer2; c3++)
+		{
+		  int meanXC3 = vClusters_layer2[1][c3];
+		  int meanYC3 = vClusters_layer2[2][c3];
+		  if ((meanXC3 != meanXATC) && (meanYC3 != meanXATC)) { // This statement avoids doubling up particles being identified by the same layer2 cluster.
+		    if (vClusters_layer2[3][c3] > 1) { //Require that the layer 2 cluster is more than 1 pixel large
+		      if (pow(pow(meanXC2-meanXC3,2)+pow(meanYC2-meanYC3,2),0.5)<(nPixelRadiusC2)) //Is mean of the layer 2 cluster within shadow of layer 1 cluster?
+			{
+			  if (CheckRejects || CheckThirdLayer || CheckAccepts) {
+			    std::cout << "EVENT " << eventID << "  Found a particle in layer1 at (" << meanXC2 << "," << meanYC2 << "), from a layer2 cluster at (" << meanXC3 << "," << meanYC3 << ")" << endl;
+			  }
+			  if (acceptedCluster != -1) //If there is already an accepted cluster
+			    {
+			      if (pow(pow(meanXC2-meanXAC,2)+pow(meanYC2-meanYAC,2),0.5)<(2*nPixelRadiusC2)) // Is mean of layer 1 cluster within shadow of accepted cluster?
+				{ // If yes, then we can ignore this cluster. It's pretty similar to either an already-found layer 0 cluster, or an already-found layer 1 cluster.
+				  if (CheckRejects || CheckThirdLayer || CheckAccepts) {
+				    std::cout << "EVENT " << eventID << "This layer 1 particle candidate at (" << meanXC2 << "," << meanYC2 << ") is close enough to already found particle at (" << meanXAC << "," << meanYAC << ") that we can treat them as part of the same shower." << std::endl;
+				  }
+				} else { // If not, then this is a whole separate track we didn't find before. We now have more than one particle candidate, so the event is rejected.
+				eventRejected = true;
+				if (eventRejected && CheckRejects) {
+				  std::cout << "+++++++++EVENTREJECTION++++++++++" << endl;
+				  std::cout << "EVENT NUMBER " << eventID << " WAS REJECTED BY C2, as there was more than one particle. There were " << nHits << " hits in the event." << endl;
+				}
+			      }
+			    } else {
+			    acceptedCluster = c;
+			    nparticles++;
+			    meanXAC = meanXC2;
+			    meanYAC = meanYC2;
+			    meanXATC = meanXC3;
+			    meanYATC = meanYC3;
+			    break; //stop loop over clusters
+			  }
+			}
+		    }
+		  }
+		}	      
+	    }
+	  }
+	}
+
+      if ((acceptedCluster != -1) && (!caughtaparticle)) {
+	std::cout << "FLAGFLAGFLAG we found a particle from the layer 2 information that we otherwise wouldn't have done!" << std::endl;
+      }
       
       if (acceptedCluster == -1) //If there is no cluster accepted
 	{
@@ -420,7 +483,7 @@ bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer,
 ////////////////////////////////////////////////////////////////////
 // 5) KT-ALGORITHM BASED SELECTION
 
-bool EventSelectionB(mTowerLayer* clayers[], mTowerChip* cchips[], Double_t nHitsTotNew[], Double_t nClustersTotNew[], Double_t dlim, Double_t dcenter, Int_t minNlayerBulk, Double_t W0Bulk, Double_t thDistBulk, Double_t wBinBulk, TH2D* htmpBulk, TH2D* htmpLim, std::map<Int_t, cellinfo> mcellsBulk, std::map<Int_t, cellinfo> mcellsLim, Int_t nla, Int_t nLayerBulk, Int_t max_layer[]) {
+bool EventSelectionB_v1(mTowerLayer* clayers[], mTowerChip* cchips[], Double_t nHitsTotNew[], Double_t nClustersTotNew[], Double_t dlim, Double_t dcenter, Int_t minNlayerBulk, Double_t W0Bulk, Double_t thDistBulk, Double_t wBinBulk, TH2D* htmpBulk, TH2D* htmpLim, std::map<Int_t, cellinfo> mcellsBulk, std::map<Int_t, cellinfo> mcellsLim, Int_t nla, Int_t nLayerBulk, Int_t max_layer[]) {
 
   ///////////////////////////////////////////////////////////////////
   // 5A) FILL CHIPS INTO LAYER

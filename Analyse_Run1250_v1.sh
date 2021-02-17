@@ -15,8 +15,8 @@ gSystem->Load("/afs/cern.ch/user/r/rbosley/public/fastjet-install/lib/libfastjet
 .L /afs/cern.ch/user/r/rbosley/public/EventSelectionToPush/classes/mTowerEvent.cxx+
 .L /afs/cern.ch/user/r/rbosley/public/EventSelectionToPush/classes/mTowerClusterRobbie.cxx+
 .L /afs/cern.ch/user/r/rbosley/public/EventSelectionToPush/classes/mTowerChipRobbie.cxx+
-.L /afs/cern.ch/user/r/rbosley/public/EventSelectionToPush/processors/EventSelection.cxx+
-.L /afs/cern.ch/user/r/rbosley/public/EventSelectionToPush/Analyse_EPICAL2.cxx+
+.L /afs/cern.ch/user/r/rbosley/public/EventSelectionToPush/processors/EventSelection_v1.cxx+
+.L /afs/cern.ch/user/r/rbosley/public/EventSelectionToPush/Analyse_EPICAL2_v1.cxx+
 Analyse_mTower(1250, 5.0)
 .q
 SHELL

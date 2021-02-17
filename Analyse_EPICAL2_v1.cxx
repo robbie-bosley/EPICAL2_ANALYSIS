@@ -40,7 +40,7 @@
 #include "classes/mTowerChipRobbie.h"
 
 // Includes for analysis processors (Taken from local processors directory)
-#include "processors/EventSelection.h"
+#include "processors/EventSelection_v1.h"
 
 // Includes for kT-Algorithm Selection
 /*#include "fastjet/ClusterSequence.hh"                                                   // Requires installation of Fastjet.
@@ -184,7 +184,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   bool HP = false; //find hot pixels
   bool CT = true; //Create TTree
   bool C2 = true; //Criterion 2. Every cluster in the first layer with hits behind it in layer 2 is accepted. Only events with 1 accepted cluster are accepted for analysis.
-  bool C4 = true; //Criterion 4. Only events where there are no hits outside of a certain area in the second layer centrated around the accepted cluster (C2) in the first layer are accepted for analysis. NEEDS C2
+  bool C4 = false; //Criterion 4. Only events where there are no hits outside of a certain area in the second layer centrated around the accepted cluster (C2) in the first layer are accepted for analysis. NEEDS C2
   bool C6 = true; // Criterion 6. Only events with clusters which are not within a certain number of pixels of the layer border are accepted for analysis. NEEDS C2
   // Activate some debug tools?
   bool CheckRejects = false;
@@ -295,7 +295,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   TFile* outputFile;
   fileLocationOutputFile += baseName;
   fileLocationOutputFile += run;
-  fileLocationOutputFile += "_PostAnalysis.root";
+  fileLocationOutputFile += "_PostAnalysis_v1.root";
   if (!(CT)) fileLocationOutputFile = "tobedeleted"; //Otherwise a previously made file might be deleted later
   outputFile = new TFile(fileLocationOutputFile,"recreate");
 
@@ -590,19 +590,19 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 	    IsGood = true;
 	    break;
 	  case 1:
-	    IsGood = EventSelectionA(CheckRejects, CheckAccepts, CheckThirdLayer, C2, C4, C6, nPixelRadiusC2, nPixelRadiusC4, nPixelBorderC6, laneNumber, laneOffset, columnsPerChip, rowsPerChip, nPixelsGap, hitsInChip, eventID, nHits, eventIndex);
+	    IsGood = EventSelectionA_v1(CheckRejects, CheckAccepts, CheckThirdLayer, C2, C4, C6, nPixelRadiusC2, nPixelRadiusC4, nPixelBorderC6, laneNumber, laneOffset, columnsPerChip, rowsPerChip, nPixelsGap, hitsInChip, eventID, nHits, eventIndex);
 	    break;
 	  case 2:
-	    IsGood = EventSelectionB(clayers, cchips, nHitsTotNew, nClustersTotNew, dlim, dcenter, minNlayerBulk, W0Bulk, thDistBulk, wBinBulk, htmpBulk, htmpLim, mcellsBulk, mcellsLim, nla, nLayerBulk, max_layer);
+	    IsGood = EventSelectionB_v1(clayers, cchips, nHitsTotNew, nClustersTotNew, dlim, dcenter, minNlayerBulk, W0Bulk, thDistBulk, wBinBulk, htmpBulk, htmpLim, mcellsBulk, mcellsLim, nla, nLayerBulk, max_layer);
 	    break;
 	  case 3:
-	    if (EventSelectionA(CheckRejects, CheckAccepts, CheckThirdLayer, C2, C4, C6, nPixelRadiusC2, nPixelRadiusC4, nPixelBorderC6, laneNumber, laneOffset, columnsPerChip, rowsPerChip, nPixelsGap, hitsInChip, eventID, nHits, eventIndex) && EventSelectionB(clayers, cchips, nHitsTotNew, nClustersTotNew, dlim, dcenter, minNlayerBulk, W0Bulk, thDistBulk, wBinBulk, htmpBulk, htmpLim, mcellsBulk, mcellsLim, nla, nLayerBulk, max_layer)) {
+	    if (EventSelectionA_v1(CheckRejects, CheckAccepts, CheckThirdLayer, C2, C4, C6, nPixelRadiusC2, nPixelRadiusC4, nPixelBorderC6, laneNumber, laneOffset, columnsPerChip, rowsPerChip, nPixelsGap, hitsInChip, eventID, nHits, eventIndex) && EventSelectionB_v1(clayers, cchips, nHitsTotNew, nClustersTotNew, dlim, dcenter, minNlayerBulk, W0Bulk, thDistBulk, wBinBulk, htmpBulk, htmpLim, mcellsBulk, mcellsLim, nla, nLayerBulk, max_layer)) {
 	      IsGood = true;
 	    }
 	    break;
 	  case 4:
-	    prepreparedRobbie = EventSelectionA(CheckRejects, CheckAccepts, CheckThirdLayer, C2, C4, C6, nPixelRadiusC2, nPixelRadiusC4, nPixelBorderC6, laneNumber, laneOffset, columnsPerChip, rowsPerChip, nPixelsGap, hitsInChip, eventID, nHits, eventIndex);
-	    prepreparedHiroki = EventSelectionB(clayers, cchips, nHitsTotNew, nClustersTotNew, dlim, dcenter, minNlayerBulk, W0Bulk, thDistBulk, wBinBulk, htmpBulk, htmpLim, mcellsBulk, mcellsLim, nla, nLayerBulk, max_layer);
+	    prepreparedRobbie = EventSelectionA_v1(CheckRejects, CheckAccepts, CheckThirdLayer, C2, C4, C6, nPixelRadiusC2, nPixelRadiusC4, nPixelBorderC6, laneNumber, laneOffset, columnsPerChip, rowsPerChip, nPixelsGap, hitsInChip, eventID, nHits, eventIndex);
+	    prepreparedHiroki = EventSelectionB_v1(clayers, cchips, nHitsTotNew, nClustersTotNew, dlim, dcenter, minNlayerBulk, W0Bulk, thDistBulk, wBinBulk, htmpBulk, htmpLim, mcellsBulk, mcellsLim, nla, nLayerBulk, max_layer);
 	    std::cout << "selection = " << selection << std::endl;
 	    switch (selection) {
 	    case 0:
