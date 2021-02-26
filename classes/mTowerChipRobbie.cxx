@@ -111,7 +111,7 @@ int mTowerChipRobbie::findNeighbours(mTowerHit* currentHit, TObjArray* neighbour
 	   continue;
 	 }
        //cout<<"Raising the cluster number by 1"<<endl;
-       currentClusterNumber += 1; //add one to the cluster number
+       currentClusterNumber += 1; //add one to the cluster number     //LEAK
        //cout<<"cluster number = "<<currentClusterNumber<<endl;
        currentHit->setStatus(1);
        currentHit->setCluster(currentClusterNumber);
@@ -128,14 +128,15 @@ int mTowerChipRobbie::findNeighbours(mTowerHit* currentHit, TObjArray* neighbour
 	       neighbourHit->setCluster(currentClusterNumber);
 	     }
 	   if (neighbourHit->getStatus() == 1) continue; //hit has already been assigned
-
+	   
 	   neighbourHit->setStatus(1);
 	   neighbourHit->setCluster(currentClusterNumber);
 	   nNeighbours = findNeighbours(neighbourHit,neighbours); 
 	   
 	 }
+       
      }
-
+   
    int nClusters = currentClusterNumber;
    //after all hits are processed and assigned to a cluster, make the clusters
    if (nClusters > 0)
@@ -153,20 +154,22 @@ int mTowerChipRobbie::findNeighbours(mTowerHit* currentHit, TObjArray* neighbour
 		   currentCluster->AddHit(currentHit);
 		 }
 	     }
-	   clusters->Add(currentCluster->Clone()); //need to clone array (= duplicate hits), otherwise hits are deleted in the next line
+	   clusters->Add(currentCluster->Clone()); //need to clone array (= duplicate hits), otherwise hits are deleted in the next line   // Memory Leak Here
 	   delete currentCluster; 
 	 }
-
+       
+       
+       
        /*for (int c = 1;c<nClusters+1;c++)
 	 {
-	   mTowerClusterRobbie* currentCluster = (mTowerClusterRobbie*) clusters->At(c-1);
-	   int nHitsInCluster = currentCluster->getNHits();
-	   int clusterId = currentCluster->getId();
-	   cout<<"Cluster "<<clusterId<<" has "<<nHitsInCluster<<" hits"<<endl;
-	   }*/
-     }
-     
+	 mTowerClusterRobbie* currentCluster = (mTowerClusterRobbie*) clusters->At(c-1);
+	 int nHitsInCluster = currentCluster->getNHits();
+	 int clusterId = currentCluster->getId();
+	 cout<<"Cluster "<<clusterId<<" has "<<nHitsInCluster<<" hits"<<endl;
+	 }*/
+     } 
+   
    delete neighbours; 
    return nClusters;
  }
-  
+

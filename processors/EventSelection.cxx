@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////////////////
 // 1)  INCLUDES
 
-#include "processors/EventSelection.h"
+#include "EventSelection.h"
 
 // Including some standard libraries
 #include <iostream>
@@ -36,10 +36,10 @@
 #include "TParameter.h"
 
 // Includes for Criteria Selection (Taken from local classes directory)
-#include "classes/mTowerHit.h"
-#include "classes/mTowerClusterRobbie.h"
-#include "classes/mTowerEvent.h"
-#include "classes/mTowerChipRobbie.h"
+#include "../classes/mTowerHit.h"
+#include "../classes/mTowerClusterRobbie.h"
+#include "../classes/mTowerEvent.h"
+#include "../classes/mTowerChipRobbie.h"
 
 
 
@@ -105,10 +105,8 @@ bool IsLeftChip(int lane){
 
 ///////////////////////////////////////////////////////////
 // 4) CRITERIA-BASED EVENT SELECTION
-bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer, bool C2, bool C4, bool C6, int nPixelRadiusC2, int nPixelRadiusC4, int nPixelBorderC6, const int laneNumber[], const int laneOffset, const int columnsPerChip, const int rowsPerChip, double nPixelsGap, mTowerChipRobbie* hitsInChip[], int eventID, int nHits, int eventIndex) {
+bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer, bool C2, bool C4, bool C6, int nPixelRadiusC2, int nPixelRadiusC4, int nPixelBorderC6, const int laneNumber[], const int laneOffset, const int columnsPerChip, const int rowsPerChip, double nPixelsGap, mTowerChipRobbie hitsInChip[], int eventID, int nHits, int eventIndex) {
 
-  std::cout << "SELECTIONA" << std::endl;
-  
   /////////////////////////////////////////////////////////
   // 4A) CLUSTERING FIRST THREE LAYERS
   vector<vector<int>> vClusters_layer0(4, vector<int> {}); //Vector with for every cluster: lanecode, meanX, meanY, clustersize
@@ -118,15 +116,15 @@ bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer,
   int nClusters_layer1 = 0;
   int nClusters_layer2 = 0;
   double minsep = 0;
-    
+
   for (int lanecode = 0; lanecode < 2; lanecode++) //loop over chips in first layer to find all clusters
     {
       int l = laneNumber[lanecode];
-      if (hitsInChip[l]->getNHits()>0)
+      if (hitsInChip[l].getNHits()>0)
 	{
 	  //get the array of clusters
-	  hitsInChip[l]->Clusterize(); // This is the main clustering workhorse. You can find it in mTowerChipRobbie.cxx in the ./classes/ folder
-	  TObjArray* clusterlist = hitsInChip[l]->getClusters();
+	  hitsInChip[l].Clusterize(); // This is the main clustering workhorse. You can find it in mTowerChipRobbie.cxx in the ./classes/ folder
+	  TObjArray* clusterlist = hitsInChip[l].getClusters();
 	  for (int c = 0;c<clusterlist->GetEntries();c++) //loop over clusters
 	    {
 	      mTowerClusterRobbie* cluster = (mTowerClusterRobbie*) clusterlist->At(c);
@@ -157,6 +155,8 @@ bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer,
 		  vClusters_layer0[3].push_back(cluster->getNHits()); //clustersize
 		}
 	    }
+	  
+	  
 	}
     }
 
@@ -164,11 +164,11 @@ bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer,
   for (int lanecode = 2; lanecode < 4; lanecode++) //loop over chips in second layer to find all clusters
     {
       int l = laneNumber[lanecode];
-      if (hitsInChip[l]->getNHits()>0)
+      if (hitsInChip[l].getNHits()>0)
 	{
 	  //get the array of clusters
-	  hitsInChip[l]->Clusterize();
-	  TObjArray* clusterlist = hitsInChip[l]->getClusters();
+	  hitsInChip[l].Clusterize();
+	  TObjArray* clusterlist = hitsInChip[l].getClusters();
 	  for (int c = 0;c<clusterlist->GetEntries();c++) //loop over clusters
 	    {
 	      mTowerClusterRobbie* cluster = (mTowerClusterRobbie*) clusterlist->At(c);
@@ -198,17 +198,17 @@ bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer,
 		  vClusters_layer1[3].push_back(cluster->getNHits()); //clustersize
 		}
 	    }
+	  
 	}
     }
-  
   for (int lanecode = 4; lanecode < 6; lanecode++) //loop over chips in second layer to find all clusters
     {
       int l = laneNumber[lanecode];
-      if (hitsInChip[l]->getNHits()>0)
+      if (hitsInChip[l].getNHits()>0)
 	{
 	  //get the array of clusters
-	  hitsInChip[l]->Clusterize();
-	  TObjArray* clusterlist = hitsInChip[l]->getClusters();
+	  hitsInChip[l].Clusterize();
+	  TObjArray* clusterlist = hitsInChip[l].getClusters();
 	  for (int c = 0;c<clusterlist->GetEntries();c++) //loop over clusters
 	    {
 	      mTowerClusterRobbie* cluster = (mTowerClusterRobbie*) clusterlist->At(c);
@@ -238,6 +238,7 @@ bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer,
 		  vClusters_layer2[3].push_back(cluster->getNHits()); //clustersize
 		}
 	    }
+	  
 	}
     }
 
@@ -255,7 +256,6 @@ bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer,
   
   ////////////////////////////////////////////////////////////////
   // 4Bi) CRITERIA C2: IDENTIFY PARTICLES IN LAYER0 USING TRANSVERSE POSITION OF CLUSTERS IN LAYERS 1 AND 2
-  
   if (C2 && !(eventRejected))
     {
       int nparticles = 0;
@@ -376,7 +376,7 @@ bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer,
 
   ////////////////////////////////////////////////////////////////
   // 4Bii) CRITERIA C6: FIDUCIAL CUT, REMOVING EVENTS WHERE THE 'PARTICLE' CLUSTER IS WITHIN RANGE (USUALLY 50 PIXELS) OF THE EDGE OF THE DETECTOR IN THE TRANSVERSE DIRECTION
-
+  
   if ((C6) && !(eventRejected)) 
     {
       if ((meanXAC < nPixelBorderC6) || (meanXAC > (columnsPerChip - nPixelBorderC6)) || (meanYAC < nPixelBorderC6) || (meanYAC > (columnsPerChip - nPixelBorderC6)))
@@ -408,6 +408,7 @@ bool EventSelectionA(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer,
 	} //Loop over layer 1 clusters
     } //C4 loop
 
+  
   /////////////////////////////////////////////////////////////////
   // 4C) SELECTION COMPLETE. RETURN TRUE IS EVENT IS NOT REJECTED, ELSE RETURN FALSE.
   if (eventRejected) {

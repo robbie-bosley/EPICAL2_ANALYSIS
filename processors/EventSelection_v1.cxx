@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////////////////
 // 1)  INCLUDES
 
-#include "processors/EventSelection_v1.h"
+#include "EventSelection_v1.h"
 
 // Including some standard libraries
 #include <iostream>
@@ -36,10 +36,10 @@
 #include "TParameter.h"
 
 // Includes for Criteria Selection (Taken from local classes directory)
-#include "classes/mTowerHit.h"
-#include "classes/mTowerClusterRobbie.h"
-#include "classes/mTowerEvent.h"
-#include "classes/mTowerChipRobbie.h"
+#include "../classes/mTowerHit.h"
+#include "../classes/mTowerClusterRobbie.h"
+#include "../classes/mTowerEvent.h"
+#include "../classes/mTowerChipRobbie.h"
 
 
 
@@ -105,9 +105,9 @@ bool IsLeftChip(int lane){
 
 ///////////////////////////////////////////////////////////
 // 4) CRITERIA-BASED EVENT SELECTION
-bool EventSelectionA_v1(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer, bool C2, bool C4, bool C6, int nPixelRadiusC2, int nPixelRadiusC4, int nPixelBorderC6, const int laneNumber[], const int laneOffset, const int columnsPerChip, const int rowsPerChip, double nPixelsGap, mTowerChipRobbie* hitsInChip[], int eventID, int nHits, int eventIndex) {
+bool EventSelectionA_v1(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer, bool C2, bool C4, bool C6, int nPixelRadiusC2, int nPixelRadiusC4, int nPixelBorderC6, const int laneNumber[], const int laneOffset, const int columnsPerChip, const int rowsPerChip, double nPixelsGap, mTowerChipRobbie hitsInChip[], int eventID, int nHits, int eventIndex) {
 
-  std::cout << "SELECTIONA" << std::endl;
+  //std::cout << "SELECTIONA" << std::endl;
   
   /////////////////////////////////////////////////////////
   // 4A) CLUSTERING FIRST THREE LAYERS
@@ -122,11 +122,11 @@ bool EventSelectionA_v1(bool CheckRejects, bool CheckAccepts, bool CheckThirdLay
   for (int lanecode = 0; lanecode < 2; lanecode++) //loop over chips in first layer to find all clusters
     {
       int l = laneNumber[lanecode];
-      if (hitsInChip[l]->getNHits()>0)
+      if (hitsInChip[l].getNHits()>0)
 	{
 	  //get the array of clusters
-	  hitsInChip[l]->Clusterize(); // This is the main clustering workhorse. You can find it in mTowerChipRobbie.cxx in the ./classes/ folder
-	  TObjArray* clusterlist = hitsInChip[l]->getClusters();
+	  hitsInChip[l].Clusterize(); // This is the main clustering workhorse. You can find it in mTowerChipRobbie.cxx in the ./classes/ folder
+	  TObjArray* clusterlist = hitsInChip[l].getClusters();
 	  for (int c = 0;c<clusterlist->GetEntries();c++) //loop over clusters
 	    {
 	      mTowerClusterRobbie* cluster = (mTowerClusterRobbie*) clusterlist->At(c);
@@ -164,11 +164,11 @@ bool EventSelectionA_v1(bool CheckRejects, bool CheckAccepts, bool CheckThirdLay
   for (int lanecode = 2; lanecode < 4; lanecode++) //loop over chips in second layer to find all clusters
     {
       int l = laneNumber[lanecode];
-      if (hitsInChip[l]->getNHits()>0)
+      if (hitsInChip[l].getNHits()>0)
 	{
 	  //get the array of clusters
-	  hitsInChip[l]->Clusterize();
-	  TObjArray* clusterlist = hitsInChip[l]->getClusters();
+	  hitsInChip[l].Clusterize();
+	  TObjArray* clusterlist = hitsInChip[l].getClusters();
 	  for (int c = 0;c<clusterlist->GetEntries();c++) //loop over clusters
 	    {
 	      mTowerClusterRobbie* cluster = (mTowerClusterRobbie*) clusterlist->At(c);
@@ -204,11 +204,11 @@ bool EventSelectionA_v1(bool CheckRejects, bool CheckAccepts, bool CheckThirdLay
   for (int lanecode = 4; lanecode < 6; lanecode++) //loop over chips in second layer to find all clusters
     {
       int l = laneNumber[lanecode];
-      if (hitsInChip[l]->getNHits()>0)
+      if (hitsInChip[l].getNHits()>0)
 	{
 	  //get the array of clusters
-	  hitsInChip[l]->Clusterize();
-	  TObjArray* clusterlist = hitsInChip[l]->getClusters();
+	  hitsInChip[l].Clusterize();
+	  TObjArray* clusterlist = hitsInChip[l].getClusters();
 	  for (int c = 0;c<clusterlist->GetEntries();c++) //loop over clusters
 	    {
 	      mTowerClusterRobbie* cluster = (mTowerClusterRobbie*) clusterlist->At(c);
@@ -416,9 +416,9 @@ bool EventSelectionA_v1(bool CheckRejects, bool CheckAccepts, bool CheckThirdLay
 	  }
 	}
 
-      if ((acceptedCluster != -1) && (!caughtaparticle)) {
+      /*if ((acceptedCluster != -1) && (!caughtaparticle)) {
 	std::cout << "FLAGFLAGFLAG we found a particle from the layer 2 information that we otherwise wouldn't have done!" << std::endl;
-      }
+	}*/
       
       if (acceptedCluster == -1) //If there is no cluster accepted
 	{

@@ -25,10 +25,10 @@
 #include "TParameter.h"
 
 // Includes for Criteria Selection (Taken from local classes directory)
-#include "classes/mTowerHit.h"
-#include "classes/mTowerClusterRobbie.h"
-#include "classes/mTowerEvent.h"
-#include "classes/mTowerChipRobbie.h"
+#include "../classes/mTowerHit.h"
+#include "../classes/mTowerClusterRobbie.h"
+#include "../classes/mTowerEvent.h"
+#include "../classes/mTowerChipRobbie.h"
 
 // Includes for kT-Algorithm Selection
 #include "fastjet/ClusterSequence.hh"                                                   // Requires installation of Fastjet.
@@ -42,7 +42,7 @@
 
 bool IsLeftChip(int lane);
 
-bool EventSelectionA_v1(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer, bool C2, bool C4, bool C6, int nPixelRadiusC2, int nPixelRadiusC4, int nPixelBorderC6, const int laneNumber[], const int laneOffset, const int columnsPerChip, const int rowsPerChip, double nPixelsGap, mTowerChipRobbie* hitsInChip[], int eventID, int nHits, int eventIndex);
+bool EventSelectionA_v1(bool CheckRejects, bool CheckAccepts, bool CheckThirdLayer, bool C2, bool C4, bool C6, int nPixelRadiusC2, int nPixelRadiusC4, int nPixelBorderC6, const int laneNumber[], const int laneOffset, const int columnsPerChip, const int rowsPerChip, double nPixelsGap, mTowerChipRobbie hitsInChip[], int eventID, int nHits, int eventIndex);
 
 bool EventSelectionB_v1(mTowerLayer* clayers[], mTowerChip* cchips[], Double_t nHitsTotNew[], Double_t nClustersTotNew[], Double_t dlim, Double_t dcenter, Int_t minNlayerBulk, Double_t W0Bulk, Double_t thDistBulk, Double_t wBinBulk, TH2D* htmpBulk, TH2D* htmpLim, std::map<Int_t, cellinfo> mcellsBulk, std::map<Int_t, cellinfo> mcellsLim, Int_t nla, Int_t nLayerBulk, Int_t max_layer[]);
 

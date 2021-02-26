@@ -40,7 +40,7 @@
 #include "classes/mTowerChipRobbie.h"
 
 // Includes for analysis processors (Taken from local processors directory)
-#include "processors/EventSelection.h"
+#include "processors/EventSelection_v1.h"
 
 // Includes for kT-Algorithm Selection
 /*#include "fastjet/ClusterSequence.hh"                                                   // Requires installation of Fastjet.
@@ -52,6 +52,7 @@
 #include "/eos/project/m/mtower/public/hiroki/00_util/load_alignment_parameters.h"
 #include "/eos/project/m/mtower/public/hiroki/11_id_pileup/cellinfo.h"
 */
+
 // Adding in namespaces
 using namespace std;
 using namespace fastjet;
@@ -60,10 +61,6 @@ using namespace ROOT::Math;
 // Define variables for use with loading/saving event selection data
 #define SQS  // true if intending to save results of event selection to a local file
 //#define LQS  // true if intending to use local file to perform quick event selection
-
-
-// Including Processors:
-// None yet.
 
 ////////////////////////////////////////////////////////////////////////////
 // 2) LOOKUP TABLES
@@ -141,7 +138,6 @@ int lane2padoccupancy(int lane){
   return padid; 
 }
 
-
 ////////////////////////////////////////////////////////////
 // 4) Run Analysis
 void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any added processors will find their place somewhere within here. 'energy_in' should be given in GeV.
@@ -150,7 +146,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   // 4A) Set hard variables
   // Hard Variables for Using Quick Selection From Local File
   TString fileLocationQuickSelection = ""; // File being used to load quick selection information
-
+  
   // Hard Variable for choosing selection(s) to use
   Int_t selection = 1;
   /*
@@ -158,7 +154,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
     If selection = 1, then only events which pass the criteria-based cuts are accepted.
     If selection = 2, then only events which pass the kT-algorithm-based cuts are accepted.
     If selection = 3, then only events which pass the criteria-based cuts AND the kT-algorithm-based cuts are accepted.
-   */
+  */
   
   // Hard Variables for kT-Algorithm Selection
   Double_t  wBinBulk      = 0.50; //[mm]
@@ -204,6 +200,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   double nPixelsGap = 5; //Width of gap between chips in units of pixels
   const int laneNumber[6] = {0,3,27,24,2,1}; //corresponds 'lanecode' with laneNumber-laneOffset. Element i is a chip in the (i/2)th layer. Lane 32, 35 in layer 0, 59, 56 in l1, 34, 33 in l2
 
+
   /////////////////////////////////////////////////////////////
   // 4B) Calculate Other Variables
 
@@ -245,12 +242,13 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
     beamEnergy = "0";
     energy = 0.0;
   }
+
   int maxX = 2*rowsPerChip + nPixelsGap - 1;
   int maxY = columnsPerChip - 1;
   //set plain style for histograms
   gROOT->SetStyle("Plain");
   //extra masking
-  TH3F* hMaskPtn = new TH3F("hMaskPtn","Hit mask",maxNChips, 0, maxNChips, columnsPerChip, 0, columnsPerChip, rowsPerChip, 0, rowsPerChip); //Histogram with pixels to mask: lane, column, row
+  TH3F hMaskPtn("hMaskPtn","Hit mask",maxNChips, 0, maxNChips, columnsPerChip, 0, columnsPerChip, rowsPerChip, 0, rowsPerChip); //Histogram with pixels to mask: lane, column, row
   if (beamEnergy != "0")
     {
       ifstream in;
@@ -265,12 +263,12 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 	{
 	  in >> chip_id >> nr_lane >> hot_pixel_column >> hot_pixel_row >> pixel_entry;
 	  if (!in.good()) break;
-	  hMaskPtn->Fill(nr_lane-laneOffset,hot_pixel_column,hot_pixel_row);
+	  hMaskPtn.Fill(nr_lane-laneOffset,hot_pixel_column,hot_pixel_row);
 	  nlines++;
 	}
       in.close();
     }
-  
+
   // Setting Up Variables For kT-Algorithm Selection
   TString  suffix0 = Form("%02d_GeV", (Int_t)( 10.*energy ));
   TString  suffix  = Form("%02d_GeV_b%03d_n%02d_m%02d_w%03d_d%03d",
@@ -292,13 +290,12 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 
   // Create Output File For TTrees
   TString baseName = "Run_";
-  TFile* outputFile;
   fileLocationOutputFile += baseName;
   fileLocationOutputFile += run;
-  fileLocationOutputFile += "_PostAnalysis.root";
+  fileLocationOutputFile += "_PostAnalysis_redo.root";
   if (!(CT)) fileLocationOutputFile = "tobedeleted"; //Otherwise a previously made file might be deleted later
-  outputFile = new TFile(fileLocationOutputFile,"recreate");
-
+  TFile outputFile(fileLocationOutputFile,"recreate");
+  
   // Find and Open the Input Root File (from eos)
   fileLocation += baseName;
   fileLocation += run;
@@ -345,7 +342,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   int nEvents = frames->GetEntries();
   int nEventsOriginal = nEvents;
   
-  // If using preprepared selection data from a local file, load in this data.
+    // If using preprepared selection data from a local file, load in this data.
 #ifdef LQS 
   TFile* inputSelectionFile = TFile::Open(fileLocationQuickSelection);
   inputSelectionFile->cd();
@@ -359,36 +356,37 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   inselectiontree->SetBranchAddress("status_selection_A",&inselectionRobbieStatus);
 #endif
 
+
   // Create Output Tree(s) and Add Branches
-  outputFile->cd();
-  TTree* outtree = new TTree("tree","Output Tree");  
-  outtree->Branch("runNumber",&runNumber,"r/I");
-  outtree->Branch("fileNumber",&fileNumber,"f/I");
-  outtree->Branch("eventNumber",&eventIndex,"e/I");
-  outtree->Branch("eventID",&eventID,"eid/I"); //This number does not reset to 0 sometimes, it goes from 0 to nEvents
-  outtree->Branch("nHits",&nHits,"n/I");
-  //outtree->Branch("dataSize",&dataSize,"d/I");
-  outtree->Branch("lane",&vlane);
-  outtree->Branch("column",&vcolumn);
-  outtree->Branch("row",&vrow);
-  outtree->Branch("packetState",&packetState);
-  outtree->Branch("st_lane"     , &vst_lane    );
-  outtree->Branch("st_error"    , &vst_error   );
-  outtree->Branch("st_roflag"   , &vst_roflag  );
+  outputFile.cd();
+  TTree outtree("tree","Output Tree");  
+  outtree.Branch("runNumber",&runNumber,"r/I");
+  outtree.Branch("fileNumber",&fileNumber,"f/I");
+  outtree.Branch("eventNumber",&eventIndex,"e/I");
+  outtree.Branch("eventID",&eventID,"eid/I"); //This number does not reset to 0 sometimes, it goes from 0 to nEvents
+  outtree.Branch("nHits",&nHits,"n/I");
+  //outtree.Branch("dataSize",&dataSize,"d/I");
+  outtree.Branch("lane",&vlane);
+  outtree.Branch("column",&vcolumn);
+  outtree.Branch("row",&vrow);
+  outtree.Branch("packetState",&packetState);
+  outtree.Branch("st_lane"     , &vst_lane    );
+  outtree.Branch("st_error"    , &vst_error   );
+  outtree.Branch("st_roflag"   , &vst_roflag  );
 
   // Create Tree for Storing Quick Pre-Prepared Selections, if required.
 #ifdef SQS
-  TTree* prepreparedtree = new TTree("prepreparedselections","Pre-prepared Event Selections");
+  TTree prepreparedtree("prepreparedselections","Pre-prepared Event Selections");
   Int_t  prepreparedEvent;
   Int_t  prepreparedRunNumber;
   Int_t  prepreparedFileNumber;
   Bool_t  prepreparedHiroki;
   Bool_t  prepreparedRobbie; 
-  prepreparedtree->Branch("eventID", &prepreparedEvent, "eventID/I");
-  prepreparedtree->Branch("status_selection_B", &prepreparedHiroki, "status_selection_B/O");
-  prepreparedtree->Branch("status_selection_A", &prepreparedRobbie, "status_selection_A/O");
-  prepreparedtree->Branch("runNumber", &prepreparedRunNumber, "runNumber/I");
-  prepreparedtree->Branch("fileNumber", &prepreparedFileNumber, "fileNumber/I");
+  prepreparedtree.Branch("eventID", &prepreparedEvent, "eventID/I");
+  prepreparedtree.Branch("status_selection_B", &prepreparedHiroki, "status_selection_B/O");
+  prepreparedtree.Branch("status_selection_A", &prepreparedRobbie, "status_selection_A/O");
+  prepreparedtree.Branch("runNumber", &prepreparedRunNumber, "runNumber/I");
+  prepreparedtree.Branch("fileNumber", &prepreparedFileNumber, "fileNumber/I");
 #endif
 
   ////////////////////////////////////////////////////////////
@@ -401,6 +399,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   for(Int_t ich=0; ich<nchip ; ich++) cchips [ich] = new mTowerChip ( ich );
   for(Int_t ich=0; ich<nchip ; ich++) cchips [ich]->set_method( mTowerChip::k8N ) ;
   for(Int_t ila=0; ila<nlayer; ila++) clayers[ila]->set_zpos( aposz[ila] );
+
   Int_t nbin = 1;
   nbin = (Int_t)(16./wBinBulk);
   TH2D* htmpBulk = new TH2D("htmpBulk", "htmpBulk", 2*nbin, -1.*wBinBulk*nbin, wBinBulk*nbin, 2*nbin, -1.*wBinBulk*nbin, wBinBulk*nbin);
@@ -423,7 +422,6 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
     }
   Bool_t isFlushTree = kFALSE ;
 
-  ////////////////////////////////////////////////////////////
   // 4E) Loop Over All Events
   for (int event = minEvent; event < maxEvent; event++)
     {
@@ -434,7 +432,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
       prepreparedEvent = event;
       
       if(( event %  10000 == 0) && DB) cout<<"event = "<< event <<endl;
-      
+
       ////////////////////////////////////////////////////////////
       // 4Ei) Quick Initialisation of a few Necessary steps for kT-algorithm Selection
       
@@ -450,7 +448,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 	cerr<<" === wrong run number ===  or  === failure on loading inclination parameter ===" <<endl; 
 	return; 
       }
-      
+
       // Check Event Status
       Bool_t   isgood = check_event_quality( vlane, vst_lane, vst_error, vst_roflag );
       if( !isgood ) continue;
@@ -466,23 +464,26 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 	ptmp[3] = get<3>(paralign.at(ich)) ;
 	cchips [ich] ->set_trans( ptmp[0], ptmp[1], ptmp[2], ptmp[3] );
       }
-
+      
       // Reset chip/layer Objects
       for(Int_t ich=0; ich<nchip ; ich++) cchips [ich]->clear_chip() ;
       for(Int_t ila=0; ila<nlayer; ila++) clayers[ila]->clear_layer();
 
       ////////////////////////////////////////////////////////////
       // 4Eii) Create mTowerEvent and mTowerHit objects, and add Pixel Mask
+
       mTowerEvent* currentEvent = new mTowerEvent(runNumber,eventIndex);
       currentEvent->setNHits(nHits);
       currentEvent->setNChips(maxNChips);
       TObjArray* hitList = currentEvent->getHits();
+
       if (DB)
 	{
 	  std::cout<<endl<<"(DB) Run: "<<runNumber<<", event: "<<event<<"/"<<nEvents-1<<", number of hits: "<<nHits;
 	  if (DB) std::cout<<", original event number: "<<eventNumberOriginal;
 	  std::cout<<endl<<"(DB) Loop over hits in event "<<event<<" to add hits to hitlist and apply extra mask"<<endl;
 	}
+      
       int nHitsMasked = 0; //number of extra hits masked
       for (int hit=0; hit<nHits; hit++)
 	{
@@ -491,7 +492,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 	  Int_t col = vcolumn->at(hit);
 	  Int_t row = vrow->at(hit);
 	  Int_t chipid  = lane2chipidrobbie_lut.at( lane );
-	  if (hMaskPtn->GetBinContent(lane-laneOffset+1,col+1,row+1) == 0) //extra masking
+	  if (hMaskPtn.GetBinContent(lane-laneOffset+1,col+1,row+1) == 0) //extra masking
 	    {
  	      currentHit->setCoordinates(lane, col, row);
 	      hitList->Add(currentHit);
@@ -501,7 +502,6 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 	}
       if (DB) std::cout<<"(DB) "<<nHitsMasked<<" extra hits masked in this event"<<endl;
 
-      
       ////////////////////////////////////////////////////////////
       // 4Eiii) Read the Event, & Begin Analysis
 
@@ -516,14 +516,14 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 	  double meanRow[maxNChips] = {0.0};
 	  double mean2Row[maxNChips] = {0.0};
 	  int nHitsPerLane[maxNChips]={0};
-	  mTowerChipRobbie* hitsInChip[maxNChips];
+	  mTowerChipRobbie* hitsInChip;
+	  hitsInChip = new mTowerChipRobbie[maxNChips];
 	  vector<vector<int>> hitsInLayer(maxNChips/2, vector<int>{});
 	  for (int l = 0; l<maxNChips ; l++)
 	    {
-	      hitsInChip[l] = new mTowerChipRobbie(l);
-	      hitsInChip[l]->setLane(l+laneOffset);
+	      hitsInChip[l].setLane(l+laneOffset);
 	    }
-
+	  
 	  if (DB) std::cout<<"(DB) Loop over hits in event "<<event<<" to get properties"<<endl;
 	  for (int hit = 0; hit < entries; hit++)
 	    {
@@ -533,24 +533,23 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 	      int column = currentHit->getColumn();
 	      
 	      if ((lane-laneOffset) <maxNChips &&(lane-laneOffset)>-1 )
-		{	  
+		{
 		  // Fill any relevant histograms, if required, and add hits to chip object.
-		  if (DB) std::cout << "Early Histograms filled." << std::endl;
 		  hitsInLayer[lane2layerrobbie_lut.at(lane)].push_back(hit);
-		  hitsInChip[lane-laneOffset]->AddHit(currentHit);
+		  hitsInChip[lane-laneOffset].AddHit(currentHit);
 		}
 	      else
 		{
 		  std::cout<<"lane number of hit "<<hit<<" out of range: "<<lane<<endl;
 		}
-	      
 	    } //loop over entries
-
+	  
 	  ////////////////////////////////////////////////////////////
 	  // 4Eiv) Perform Event Selection
 	  bool IsGood = false;
 	  Int_t selection_choice;
 	  Int_t selection_status = 0;
+
 #ifdef LQS
 	  if ((runNumber != inselectionRunNumber) || (fileNumber != inselectionFileNumber) || (eventID != inselectionEvent)) {
 	    std::cerr << "Problem! Selection event/run/file number doesn't match up with data. Aborting!" << std::endl;
@@ -584,26 +583,27 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 #else 
 	  selection_choice = selection;
 #endif
-	  std::cout << "selection_choice = " << selection_choice << std::endl;
+	  
+	  //std::cout << "selection_choice = " << selection_choice << std::endl;
 	  switch (selection_choice) {
 	  case 0:  // No Selection Performed.
 	    IsGood = true;
 	    break;
 	  case 1:
-	    IsGood = EventSelectionA(CheckRejects, CheckAccepts, CheckThirdLayer, C2, C4, C6, nPixelRadiusC2, nPixelRadiusC4, nPixelBorderC6, laneNumber, laneOffset, columnsPerChip, rowsPerChip, nPixelsGap, hitsInChip, eventID, nHits, eventIndex);
+	    IsGood = EventSelectionA_v1(CheckRejects, CheckAccepts, CheckThirdLayer, C2, C4, C6, nPixelRadiusC2, nPixelRadiusC4, nPixelBorderC6, laneNumber, laneOffset, columnsPerChip, rowsPerChip, nPixelsGap, hitsInChip, eventID, nHits, eventIndex);
 	    break;
 	  case 2:
-	    IsGood = EventSelectionB(clayers, cchips, nHitsTotNew, nClustersTotNew, dlim, dcenter, minNlayerBulk, W0Bulk, thDistBulk, wBinBulk, htmpBulk, htmpLim, mcellsBulk, mcellsLim, nla, nLayerBulk, max_layer);
+	    IsGood = EventSelectionB_v1(clayers, cchips, nHitsTotNew, nClustersTotNew, dlim, dcenter, minNlayerBulk, W0Bulk, thDistBulk, wBinBulk, htmpBulk, htmpLim, mcellsBulk, mcellsLim, nla, nLayerBulk, max_layer);
 	    break;
 	  case 3:
-	    if (EventSelectionA(CheckRejects, CheckAccepts, CheckThirdLayer, C2, C4, C6, nPixelRadiusC2, nPixelRadiusC4, nPixelBorderC6, laneNumber, laneOffset, columnsPerChip, rowsPerChip, nPixelsGap, hitsInChip, eventID, nHits, eventIndex) && EventSelectionB(clayers, cchips, nHitsTotNew, nClustersTotNew, dlim, dcenter, minNlayerBulk, W0Bulk, thDistBulk, wBinBulk, htmpBulk, htmpLim, mcellsBulk, mcellsLim, nla, nLayerBulk, max_layer)) {
+	    if (EventSelectionA_v1(CheckRejects, CheckAccepts, CheckThirdLayer, C2, C4, C6, nPixelRadiusC2, nPixelRadiusC4, nPixelBorderC6, laneNumber, laneOffset, columnsPerChip, rowsPerChip, nPixelsGap, hitsInChip, eventID, nHits, eventIndex) && EventSelectionB_v1(clayers, cchips, nHitsTotNew, nClustersTotNew, dlim, dcenter, minNlayerBulk, W0Bulk, thDistBulk, wBinBulk, htmpBulk, htmpLim, mcellsBulk, mcellsLim, nla, nLayerBulk, max_layer)) {
 	      IsGood = true;
 	    }
 	    break;
 	  case 4:
-	    prepreparedRobbie = EventSelectionA(CheckRejects, CheckAccepts, CheckThirdLayer, C2, C4, C6, nPixelRadiusC2, nPixelRadiusC4, nPixelBorderC6, laneNumber, laneOffset, columnsPerChip, rowsPerChip, nPixelsGap, hitsInChip, eventID, nHits, eventIndex);
-	    prepreparedHiroki = EventSelectionB(clayers, cchips, nHitsTotNew, nClustersTotNew, dlim, dcenter, minNlayerBulk, W0Bulk, thDistBulk, wBinBulk, htmpBulk, htmpLim, mcellsBulk, mcellsLim, nla, nLayerBulk, max_layer);
-	    std::cout << "selection = " << selection << std::endl;
+	    prepreparedRobbie = EventSelectionA_v1(CheckRejects, CheckAccepts, CheckThirdLayer, C2, C4, C6, nPixelRadiusC2, nPixelRadiusC4, nPixelBorderC6, laneNumber, laneOffset, columnsPerChip, rowsPerChip, nPixelsGap, hitsInChip, eventID, nHits, eventIndex);
+	    prepreparedHiroki = EventSelectionB_v1(clayers, cchips, nHitsTotNew, nClustersTotNew, dlim, dcenter, minNlayerBulk, W0Bulk, thDistBulk, wBinBulk, htmpBulk, htmpLim, mcellsBulk, mcellsLim, nla, nLayerBulk, max_layer);
+	    //std::cout << "selection = " << selection << std::endl;
 	    switch (selection) {
 	    case 0:
 	      IsGood = true;
@@ -629,47 +629,69 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 	    break;
 	  }
 #endif
+	  
 	  // Check if event is accepted by chosen selection. If not, save any information required, and move on to the next event.
 	  if( !IsGood ){
 #ifdef SQS
-	    prepreparedtree->Fill();
+	    prepreparedtree.Fill();
 #endif
 	    if (DB) std::cout << "Event number " << event << "was rejected." << std::endl;
 	    continue;
 	  }
+
 	  
 	  ////////////////////////////////////////////////////////////
 	  // 4Ev) Perform Clustering
 	  // To be added by Hiroki/Qasim at a later date.
+
 	  
 	  ////////////////////////////////////////////////////////////
 	  // 4Evi) Fill Trees
-	  
-	  outtree->Fill();
+	  	  
+	  outtree.Fill();
 #ifdef SQS 
-	  prepreparedtree->Fill();
+	  prepreparedtree.Fill();
 #endif
 	  if( isFlushTree ) {
-	    outtree->AutoSave("FlushBaskets");
+	    outtree.AutoSave("FlushBaskets");
 #ifdef SQS
-	    prepreparedtree->AutoSave("FlushBaskets");
+	    prepreparedtree.AutoSave("FlushBaskets");
 #endif
 	    isFlushTree = kFALSE;
 	  }
-
+	  
+	  
 	  ////////////////////////////////////////////////////////////
 	  // 4Evii) Delete any necessary variables, and end loop over events
+
+	  delete[] hitsInChip;
 	  delete currentEvent;
+
 	}
     }
-
+  
   //////////////////////////////////////////////////////////
   // 5) Write the tree(s) to the disk
-  
-  outputFile->cd();
-  outputFile->Write();
-  outputFile->Close();
-  
 
-    
+  outputFile.cd();
+  outputFile.Write();
+  outputFile.Close();
+  
+  
+  /////////////////////////////////////////////////////////
+  // 6) Delete outside-event variables
+  
+  delete vlane;
+  delete vcolumn;
+  delete vrow;
+  delete vst_lane;
+  delete vst_error;
+  delete vst_roflag;
+  
+  delete htmpBulk;
+  delete htmpLim;
+
+  for(Int_t ila=0; ila<nlayer; ila++) delete clayers[ila];
+  for(Int_t ich=0; ich<nchip ; ich++) delete cchips[ich];
+  
 }
