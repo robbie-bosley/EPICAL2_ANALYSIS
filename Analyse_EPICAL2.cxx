@@ -9,6 +9,8 @@
 #include <tuple>
 #include <fstream>
 #include <string>
+#include <sys/stat.h>
+#include <stdio.h>
 
 // Includes from ROOT:
 #include "TString.h"
@@ -32,6 +34,15 @@
 #include "TVector3.h"
 #include "TRandom3.h"
 #include "TParameter.h"
+
+#include <TGClient.h>
+#include <TCanvas.h>
+#include <TRandom.h>
+#include <TGButton.h>
+#include <TGFrame.h>
+#include <TRootEmbeddedCanvas.h>
+#include <RQ_OBJECT.h>
+#include "TInterpreter.h"
 
 // Includes for Criteria Selection (Taken from local classes directory)
 #include "classes/mTowerHit.h"
@@ -61,6 +72,9 @@ using namespace ROOT::Math;
 // Define variables for use with loading/saving event selection data
 #define SQS  // true if intending to save results of event selection to a local file
 //#define LQS  // true if intending to use local file to perform quick event selection
+
+// Define variables for use with Qasim's clustering:
+#define nchip 48
 
 ////////////////////////////////////////////////////////////////////////////
 // 2) LOOKUP TABLES
@@ -200,7 +214,17 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   double nPixelsGap = 5; //Width of gap between chips in units of pixels
   const int laneNumber[6] = {0,3,27,24,2,1}; //corresponds 'lanecode' with laneNumber-laneOffset. Element i is a chip in the (i/2)th layer. Lane 32, 35 in layer 0, 59, 56 in l1, 34, 33 in l2
 
-
+  //Hard Variables for Qasim's clustering
+  if (!(gInterpreter->IsLoaded("vector")))
+    gInterpreter->ProcessLine("#include <vector>");
+  gSystem->Exec("rm -f AutoDict*vector*vector*int*");
+  gInterpreter->GenerateDictionary("vector<vector<int> >","vector");
+  bool check_repeatetion= false;
+  bool chip_0_hit=false;
+  bool chip_1_hit=false;
+  bool chip_0_cond=false;
+  bool chip_1_cond=false;
+  
   /////////////////////////////////////////////////////////////
   // 4B) Calculate Other Variables
 
@@ -322,6 +346,14 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   vector<Int_t>* vlane = new vector<Int_t>();
   vector<Int_t>* vcolumn = new vector<Int_t>();
   vector<Int_t>* vrow = new vector<Int_t>();
+  vector<Int_t>* vindex = new vector<Int_t>();
+
+  vector<Int_t>* clusterLane = new vector<Int_t>();
+  vector<Int_t>* clusterSize = new vector<Int_t>();
+  vector<Double_t>* clusterX = new vector<Double_t>();
+  vector<Double_t>* clusterY = new vector<Double_t>();
+  vector<vector<Int_t> >* clusterHitIndex = new vector<vector<Int_t> >();
+
   Long64_t packetState  ;
   vector<Int_t>*vst_lane   = new vector<Int_t>();
   vector<Int_t>*vst_error  = new vector<Int_t>();
@@ -342,7 +374,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   int nEvents = frames->GetEntries();
   int nEventsOriginal = nEvents;
   
-    // If using preprepared selection data from a local file, load in this data.
+  // If using preprepared selection data from a local file, load in this data.
 #ifdef LQS 
   TFile* inputSelectionFile = TFile::Open(fileLocationQuickSelection);
   inputSelectionFile->cd();
@@ -369,6 +401,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   outtree.Branch("lane",&vlane);
   outtree.Branch("column",&vcolumn);
   outtree.Branch("row",&vrow);
+  outtree.Branch("hitIndex",&vindex);
   outtree.Branch("packetState",&packetState);
   outtree.Branch("st_lane"     , &vst_lane    );
   outtree.Branch("st_error"    , &vst_error   );
@@ -389,6 +422,36 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   prepreparedtree.Branch("fileNumber", &prepreparedFileNumber, "fileNumber/I");
 #endif
 
+  // Add Qasim's clustering to the standard output tree.
+  std::vector< std::vector<pair<int,int> > > address;
+  std::vector<std::vector<int> > clust_size;
+  std::vector<std::vector<int> > clust_no;
+  std::vector<std::vector<int> > part_per_evt;
+  std::vector<std::vector<int> > ind_nHits;
+  std::vector<int> chip_w_hits;
+  std::vector<int> chip_lane;
+
+  for (int i=0; i<nchip; i++)
+    {
+      address.push_back(vector<pair<int,int> >());
+      clust_size.push_back(std::vector<int>());
+      clust_no.push_back(std::vector<int>());
+      part_per_evt.push_back(std::vector<int>());
+      ind_nHits.push_back(std::vector<int>());
+      chip_lane.push_back(-1);
+    }
+
+  outtree.Branch("Cluster_Lane", &clusterLane);
+  outtree.Branch("Cluster_Size", &clusterSize);
+  outtree.Branch("Cluster_X", &clusterX);
+  outtree.Branch("Cluster_Y", &clusterY);
+  outtree.Branch("Cluster_Hit_Index", &clusterHitIndex);
+
+      
+  //outtree.Branch("ind_nHits", &ind_nHits);
+  //outtree.Branch("clust_size", &clust_size);
+  //outtree.Branch("part_per_evt", &part_per_evt);
+
   ////////////////////////////////////////////////////////////
   // 4D) Pre-prepare Some Objects For Loop Over Events
 
@@ -408,6 +471,12 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   std::map<Int_t, cellinfo> mcellsBulk{};
   std::map<Int_t, cellinfo> mcellsLim {};  
   Int_t eff_den1 = 0; Int_t eff_neu1 = 0;
+
+  // Prepare usefult variables for Qasim's clustering
+  Int_t cur_evt_ch_[nchip];
+  for (int k=0; k <nchip; k++)
+    {cur_evt_ch_[k]=-1;} 
+  Int_t nlayer = nchip/2;
   
   // Prepare Useful General Objects For Loop Over Events
   std::cout<<"*** Loop over events in input file"<<endl;
@@ -441,6 +510,8 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
       Double_t  nClustersTotNew[nla] = {0};
       mcellsBulk.clear(); htmpBulk->Reset("ICESM");
       mcellsLim.clear() ; htmpLim ->Reset("ICESM");
+
+      vindex.clear();
 
       // Check Inclination Parameter Exists
       UInt_t runPeriod = ( runNumber < 1413 )? 0 : 1 ;
@@ -492,6 +563,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 	  Int_t col = vcolumn->at(hit);
 	  Int_t row = vrow->at(hit);
 	  Int_t chipid  = lane2chipidrobbie_lut.at( lane );
+	  
 	  if (hMaskPtn.GetBinContent(lane-laneOffset+1,col+1,row+1) == 0) //extra masking
 	    {
  	      currentHit->setCoordinates(lane, col, row);
@@ -531,7 +603,7 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 	      int lane = currentHit->getLane();
 	      int row = currentHit->getRow();
 	      int column = currentHit->getColumn();
-	      
+	      vindex.push_back(hit);
 	      if ((lane-laneOffset) <maxNChips &&(lane-laneOffset)>-1 )
 		{
 		  // Fill any relevant histograms, if required, and add hits to chip object.
@@ -544,8 +616,15 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 		}
 	    } //loop over entries
 	  
+
 	  ////////////////////////////////////////////////////////////
-	  // 4Eiv) Perform Event Selection
+	  // 4Eiv) Perform Clustering
+	  // To be added by Hiroki/Qasim at a later date.
+	  QasimClustering(hitList, cur_evt_ch_, event, chip_0_hit, chip_1_hit, )
+
+
+	  ////////////////////////////////////////////////////////////
+	  // 4Ev) Perform Event Selection
 	  bool IsGood = false;
 	  Int_t selection_choice;
 	  Int_t selection_status = 0;
@@ -638,12 +717,6 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
 	    if (DB) std::cout << "Event number " << event << "was rejected." << std::endl;
 	    continue;
 	  }
-
-	  
-	  ////////////////////////////////////////////////////////////
-	  // 4Ev) Perform Clustering
-	  // To be added by Hiroki/Qasim at a later date.
-
 	  
 	  ////////////////////////////////////////////////////////////
 	  // 4Evi) Fill Trees
@@ -687,6 +760,14 @@ void Analyse_mTower(int run, Double_t energy) // This is the main workhorse. Any
   delete vst_lane;
   delete vst_error;
   delete vst_roflag;
+  delete vindex;
+
+  delete clusterLane;
+  delete clusterSize;
+  delete clusterX;
+  delete clusterY;
+  delete clusterHitIndex;
+
   
   delete htmpBulk;
   delete htmpLim;
